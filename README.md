@@ -24,7 +24,7 @@ This app does something similar for local coding work. It watches the flow of yo
 Chorreador watches locally for:
 
 - **Claude Code**
-- **Codex CLI**
+- **Codex CLI and active Codex Desktop tasks**
 - **Cursor Agent**
 - **OpenCode**
 - **T3 Code**
@@ -40,6 +40,7 @@ Need another runtime? Add its executable name under **Custom processes** and Cho
 - **Battery-aware.** The pour pauses at 20% while running on battery.
 - **No permanent changes.** No `pmset`, administrator access, daemon, or background service.
 - **Agent-aware.** Ordinary editor helpers and crash reporters do not trigger protection.
+- **Desktop-aware.** Active Codex Desktop workers count, while its idle app shell does not.
 
 ## Pour modes
 

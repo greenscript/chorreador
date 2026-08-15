@@ -1,6 +1,6 @@
 import Foundation
 
-enum CodingAgent: String, CaseIterable, Hashable {
+enum CodingAgent: String, CaseIterable, Hashable, Sendable {
     case claudeCode
     case codex
     case cursor
@@ -18,7 +18,7 @@ enum CodingAgent: String, CaseIterable, Hashable {
     }
 }
 
-struct AgentDetectionResult: Equatable {
+struct AgentDetectionResult: Equatable, Sendable {
     let agents: Set<CodingAgent>
     let customProcesses: Set<String>
 }
@@ -144,6 +144,10 @@ enum AgentProcessDetector {
     }
 
     private static func isCodexCLICommand(_ command: String) -> Bool {
+        if isActiveCodexDesktopWorker(command) {
+            return true
+        }
+
         let desktopPaths = [
             "/applications/codex.app/contents/",
             "/applications/chatgpt.app/contents/",
@@ -158,6 +162,15 @@ enum AgentProcessDetector {
             || command.contains("/codex-aarch64-apple-darwin")
             || command.contains("/codex-x86_64-apple-darwin")
             || command.contains("@openai/codex")
+    }
+
+    private static func isActiveCodexDesktopWorker(_ command: String) -> Bool {
+        let isBundledWithCodexDesktop = command.contains("/applications/codex.app/contents/")
+            || command.contains("/applications/chatgpt.app/contents/")
+        guard isBundledWithCodexDesktop else { return false }
+
+        return command.contains("/contents/resources/codex sandbox ")
+            || command.contains("/contents/resources/codex exec ")
     }
 
     private static func isCursorAgentCommand(_ command: String) -> Bool {

@@ -44,7 +44,6 @@ final class PowerManager: NSObject, ObservableObject {
     @Published private(set) var policy = WakePolicy.inactive
     @Published private(set) var brewTimerEndDate: Date?
     @Published private(set) var pourStartedAt: Date?
-    @Published private(set) var now = Date()
 
     var isAutomaticallyProtecting: Bool {
         automaticDetectionEnabled
@@ -77,8 +76,8 @@ final class PowerManager: NSObject, ObservableObject {
     private var activity: NSObjectProtocol?
     private var batteryTimer: Timer?
     private var agentTimer: Timer?
-    private var clockTimer: Timer?
     private var brewTimer: Timer?
+    private var agentScanTask: Task<Void, Never>?
     private var hasCompletedInitialAgentScan = false
 
     init(defaults: UserDefaults = .standard) {
@@ -123,13 +122,6 @@ final class PowerManager: NSObject, ObservableObject {
             userInfo: nil,
             repeats: true
         )
-        clockTimer = Timer.scheduledTimer(
-            timeInterval: 30,
-            target: self,
-            selector: #selector(refreshClockFromTimer),
-            userInfo: nil,
-            repeats: true
-        )
         agentTimer = Timer.scheduledTimer(
             timeInterval: 10,
             target: self,
@@ -142,8 +134,8 @@ final class PowerManager: NSObject, ObservableObject {
     deinit {
         batteryTimer?.invalidate()
         agentTimer?.invalidate()
-        clockTimer?.invalidate()
         brewTimer?.invalidate()
+        agentScanTask?.cancel()
         if let activity {
             ProcessInfo.processInfo.endActivity(activity)
         }
@@ -155,10 +147,28 @@ final class PowerManager: NSObject, ObservableObject {
     }
 
     func refreshDetectedAgents() {
+        agentScanTask?.cancel()
+
+        guard automaticDetectionEnabled else {
+            applyAgentDetection(AgentDetectionResult(agents: [], customProcesses: []))
+            return
+        }
+
+        let processNames = customProcessNames
+        agentScanTask = Task { [weak self] in
+            let detection = await Task.detached(priority: .utility) {
+                AgentProcessDetector.runningDetection(customProcessNames: processNames)
+            }.value
+
+            guard !Task.isCancelled,
+                  let self,
+                  self.automaticDetectionEnabled else { return }
+            self.applyAgentDetection(detection)
+        }
+    }
+
+    private func applyAgentDetection(_ detection: AgentDetectionResult) {
         let previousNames = detectedProcessDisplayNames
-        let detection = automaticDetectionEnabled
-            ? AgentProcessDetector.runningDetection(customProcessNames: customProcessNames)
-            : AgentDetectionResult(agents: [], customProcesses: [])
         detectedAgents = detection.agents
         detectedCustomProcesses = detection.customProcesses
         reconcilePolicy()
@@ -252,10 +262,6 @@ final class PowerManager: NSObject, ObservableObject {
 
     @objc private func refreshDetectedAgentsFromTimer() {
         refreshDetectedAgents()
-    }
-
-    @objc private func refreshClockFromTimer() {
-        now = Date()
     }
 
     @objc private func finishBrewTimer() {

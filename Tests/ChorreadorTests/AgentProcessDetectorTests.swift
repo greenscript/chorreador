@@ -32,6 +32,16 @@ final class AgentProcessDetectorTests: XCTestCase {
         XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode, .codex])
     }
 
+    func testDetectsActiveCodexDesktopWorkers() {
+        let processList = """
+          304 /Applications/ChatGPT.app/Contents/Resources/codex sandbox -c shell_environment_policy.inherit=all
+          305 /Applications/Codex.app/Contents/Resources/codex exec --full-auto Build the feature
+          306 /Applications/ChatGPT.app/Contents/Resources/codex app-server --listen stdio://
+        """
+
+        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.codex])
+    }
+
     func testDetectsOpenCodeInstallations() {
         let processList = """
           310 /Users/diego/.opencode/bin/opencode run Build the feature
@@ -67,6 +77,7 @@ final class AgentProcessDetectorTests: XCTestCase {
           402 /Applications/Claude.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --database=Claude
           403 /Users/diego/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService
           404 /Applications/OpenCode.app/Contents/MacOS/opencode
+          405 /Applications/ChatGPT.app/Contents/Resources/codex app-server --listen stdio://
         """
 
         XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
