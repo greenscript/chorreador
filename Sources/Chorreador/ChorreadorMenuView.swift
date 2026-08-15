@@ -33,7 +33,9 @@ struct ChorreadorMenuView: View {
             Divider()
                 .padding(.horizontal, 16)
 
-            MenuFooter()
+            MenuFooter {
+                SettingsWindowController.shared.show(powerManager: powerManager)
+            }
         }
         .frame(width: 340)
         .background(.regularMaterial)
@@ -290,6 +292,8 @@ private struct TimerMenu: View {
 }
 
 private struct MenuFooter: View {
+    let openSettings: () -> Void
+
     var body: some View {
         HStack(spacing: 12) {
             Text("Hecho en Costa Rica")
@@ -313,11 +317,6 @@ private struct MenuFooter: View {
     private var settingsControl: some View {
         Button("Settings…", action: openSettings)
             .buttonStyle(.plain)
-    }
-
-    private func openSettings() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 }
 

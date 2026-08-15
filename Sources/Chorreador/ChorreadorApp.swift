@@ -11,9 +11,5 @@ struct ChorreadorApp: App {
             Label("Chorreador", systemImage: "drop.fill")
         }
         .menuBarExtraStyle(.window)
-
-        Settings {
-            ChorreadorSettingsView(powerManager: powerManager)
-        }
     }
 }
