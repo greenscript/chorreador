@@ -21,8 +21,7 @@ struct ChorreadorMenuView: View {
                 .padding(16)
             }
         }
-        .frame(width: 390)
-        .frame(maxHeight: 720)
+        .frame(width: 390, height: 680)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             powerManager.refreshLaunchAtLoginStatus()
