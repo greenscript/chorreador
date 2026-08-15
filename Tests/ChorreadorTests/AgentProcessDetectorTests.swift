@@ -15,12 +15,12 @@ final class AgentProcessDetectorTests: XCTestCase {
         XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode, .codex])
     }
 
-    func testDetectsClaudeCodeLaunchedByClaudeDesktop() {
+    func testIgnoresPersistentClaudeCodeWorkerLaunchedByClaudeDesktop() {
         let processList = """
           201 /Users/diego/Library/Application Support/Claude/claude-code/2.1.229/claude.app/Contents/MacOS/claude --output-format stream-json
         """
 
-        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode])
+        XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
     }
 
     func testDetectsPackageBasedInstallations() {
@@ -32,14 +32,14 @@ final class AgentProcessDetectorTests: XCTestCase {
         XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode, .codex])
     }
 
-    func testDetectsActiveCodexDesktopWorkers() {
+    func testIgnoresPersistentCodexDesktopWorkers() {
         let processList = """
           304 /Applications/ChatGPT.app/Contents/Resources/codex sandbox -c shell_environment_policy.inherit=all
           305 /Applications/Codex.app/Contents/Resources/codex exec --full-auto Build the feature
           306 /Applications/ChatGPT.app/Contents/Resources/codex app-server --listen stdio://
         """
 
-        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.codex])
+        XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
     }
 
     func testDetectsOpenCodeInstallations() {

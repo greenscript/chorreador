@@ -29,13 +29,14 @@ Chorreador watches locally for:
 - **OpenCode**
 - **T3 Code**
 
-When a supported agent starts, Chorreador prevents idle system sleep. When the agent exits, normal sleep behavior returns within the next 10-second check.
+When a supported agent starts, Chorreador prevents idle system sleep. Most agents return to normal sleep behavior within the next 10-second check after they exit. Codex Desktop uses a five-minute quiet lease so long reasoning and tool calls remain protected between activity events.
 
 Need another runtime? Add its executable name under **Custom processes** and Chorreador will include it in the same local scan.
 
 ## Why it feels safe
 
 - **Local-only detection.** Process names never leave your Mac.
+- **Private desktop status.** Desktop detection only inspects local event type and completion metadata; nothing leaves your Mac.
 - **Display-friendly.** Screen sleep remains enabled by default.
 - **Battery-aware.** The pour pauses at 20% while running on battery.
 - **No permanent changes.** No `pmset`, administrator access, daemon, or background service.

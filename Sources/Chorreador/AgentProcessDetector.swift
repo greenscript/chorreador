@@ -42,8 +42,16 @@ enum AgentProcessDetector {
             guard let processList = String(data: data, encoding: .utf8) else {
                 return AgentDetectionResult(agents: [], customProcesses: [])
             }
+            var agents = detect(in: processList)
+            if CodexDesktopActivityDetector.isAgentRunning(in: processList) {
+                agents.insert(.codex)
+            }
+            if ClaudeDesktopActivityDetector.isAgentRunning(in: processList) {
+                agents.insert(.claudeCode)
+            }
+
             return AgentDetectionResult(
-                agents: detect(in: processList),
+                agents: agents,
                 customProcesses: detectCustomProcesses(
                     in: processList,
                     matching: customProcessNames
@@ -133,7 +141,7 @@ enum AgentProcessDetector {
     private static func isClaudeCodeCommand(_ command: String) -> Bool {
         if command.contains("/claude-code/")
             && command.contains("/claude.app/contents/macos/claude") {
-            return true
+            return false
         }
 
         guard !command.contains("/applications/claude.app/contents/") else { return false }
@@ -144,10 +152,6 @@ enum AgentProcessDetector {
     }
 
     private static func isCodexCLICommand(_ command: String) -> Bool {
-        if isActiveCodexDesktopWorker(command) {
-            return true
-        }
-
         let desktopPaths = [
             "/applications/codex.app/contents/",
             "/applications/chatgpt.app/contents/",
@@ -162,15 +166,6 @@ enum AgentProcessDetector {
             || command.contains("/codex-aarch64-apple-darwin")
             || command.contains("/codex-x86_64-apple-darwin")
             || command.contains("@openai/codex")
-    }
-
-    private static func isActiveCodexDesktopWorker(_ command: String) -> Bool {
-        let isBundledWithCodexDesktop = command.contains("/applications/codex.app/contents/")
-            || command.contains("/applications/chatgpt.app/contents/")
-        guard isBundledWithCodexDesktop else { return false }
-
-        return command.contains("/contents/resources/codex sandbox ")
-            || command.contains("/contents/resources/codex exec ")
     }
 
     private static func isCursorAgentCommand(_ command: String) -> Bool {
