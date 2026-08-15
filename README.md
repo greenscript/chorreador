@@ -31,6 +31,8 @@ Chorreador watches locally for:
 
 When a supported agent starts, Chorreador prevents idle system sleep. When the agent exits, normal sleep behavior returns within the next 10-second check.
 
+Need another runtime? Add its executable name under **Custom processes** and Chorreador will include it in the same local scan.
+
 ## Why it feels safe
 
 - **Local-only detection.** Process names never leave your Mac.
@@ -47,14 +49,31 @@ When a supported agent starts, Chorreador prevents idle system sleep. When the a
 | **Manual pour** | Keeps the Mac awake on demand |
 | **Let the display rest** | Protects the session without keeping the screen lit |
 | **Battery care** | Stops protection at 20% while unplugged |
+| **Brew timer** | Keeps the Mac awake for 30 minutes, 1 hour, or 2 hours |
 
-## Build
+## Small comforts
+
+- **Launch at login** so auto-pour is ready before your agents are.
+- **Live activity** showing which agents are flowing and for how long.
+- **Custom processes** for tools such as Aider, Goose, or your own scripts.
+- **Quiet notifications** only when an agent pour starts, finishes, or pauses for battery care.
+- **Persistent timers** that survive relaunch and expire automatically.
+
+## Install
+
+Download the latest zip from [GitHub Releases](https://github.com/greenscript/chorreador/releases), move **Chorreador.app** to your Applications folder, and open it.
+
+The universal build supports both Apple silicon and Intel Macs running macOS 13 or newer.
+
+Release builds are currently ad-hoc signed rather than Apple-notarized. On first launch, macOS may ask you to confirm the app in **System Settings → Privacy & Security**. The complete source and build process are available here for inspection.
+
+## Build from source
 
 Requires macOS 13 or newer, Xcode Command Line Tools, and ImageMagick for packaging the icon.
 
 ```sh
-git clone <repository-url>
-cd Chorreador
+git clone https://github.com/greenscript/chorreador.git
+cd chorreador
 zsh scripts/build-app.sh
 open dist/Chorreador.app
 ```
@@ -71,6 +90,10 @@ zsh scripts/build-app.sh debug
 ## A small but important limitation
 
 Chorreador blocks **idle** sleep. Closing a MacBook lid, choosing Sleep manually, shutting down, or macOS critical-battery protection can still suspend the Mac. Quitting Chorreador immediately releases its assertion.
+
+## License
+
+Chorreador is available under the [MIT License](LICENSE).
 
 ---
 

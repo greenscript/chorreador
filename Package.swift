@@ -13,7 +13,9 @@ let package = Package(
             name: "Chorreador",
             linkerSettings: [
                 .linkedFramework("AppKit"),
-                .linkedFramework("IOKit")
+                .linkedFramework("IOKit"),
+                .linkedFramework("ServiceManagement"),
+                .linkedFramework("UserNotifications")
             ]
         ),
         .testTarget(

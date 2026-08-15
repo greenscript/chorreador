@@ -18,8 +18,13 @@ enum CodingAgent: String, CaseIterable, Hashable {
     }
 }
 
+struct AgentDetectionResult: Equatable {
+    let agents: Set<CodingAgent>
+    let customProcesses: Set<String>
+}
+
 enum AgentProcessDetector {
-    static func runningAgents() -> Set<CodingAgent> {
+    static func runningDetection(customProcessNames: [String] = []) -> AgentDetectionResult {
         let process = Process()
         let output = Pipe()
         process.executableURL = URL(fileURLWithPath: "/bin/ps")
@@ -31,12 +36,26 @@ enum AgentProcessDetector {
             try process.run()
             let data = output.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return [] }
-            guard let processList = String(data: data, encoding: .utf8) else { return [] }
-            return detect(in: processList)
+            guard process.terminationStatus == 0 else {
+                return AgentDetectionResult(agents: [], customProcesses: [])
+            }
+            guard let processList = String(data: data, encoding: .utf8) else {
+                return AgentDetectionResult(agents: [], customProcesses: [])
+            }
+            return AgentDetectionResult(
+                agents: detect(in: processList),
+                customProcesses: detectCustomProcesses(
+                    in: processList,
+                    matching: customProcessNames
+                )
+            )
         } catch {
-            return []
+            return AgentDetectionResult(agents: [], customProcesses: [])
         }
+    }
+
+    static func runningAgents() -> Set<CodingAgent> {
+        runningDetection().agents
     }
 
     static func detect(in processList: String) -> Set<CodingAgent> {
@@ -66,6 +85,49 @@ enum AgentProcessDetector {
         }
 
         return detected
+    }
+
+    static func detectCustomProcesses(
+        in processList: String,
+        matching processNames: [String]
+    ) -> Set<String> {
+        var normalizedNames: [String: String] = [:]
+        for processName in processNames {
+            let trimmed = processName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            normalizedNames[trimmed.lowercased()] = trimmed
+        }
+        guard !normalizedNames.isEmpty else { return [] }
+
+        var detected: Set<String> = []
+        for command in commands(in: processList) {
+            let lowercased = command.lowercased()
+            guard !lowercased.contains("/chorreador.app/contents/") else { continue }
+            guard let executable = command.split(whereSeparator: { $0.isWhitespace }).first else {
+                continue
+            }
+
+            let executableName = String(executable)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                .split(separator: "/")
+                .last
+                .map(String.init)?
+                .lowercased()
+
+            if let executableName, let originalName = normalizedNames[executableName] {
+                detected.insert(originalName)
+            }
+        }
+
+        return detected
+    }
+
+    private static func commands(in processList: String) -> [String] {
+        processList.split(separator: "\n").map { rawLine in
+            rawLine
+                .drop(while: { $0.isWhitespace || $0.isNumber })
+                .trimmingCharacters(in: .whitespaces)
+        }
     }
 
     private static func isClaudeCodeCommand(_ command: String) -> Bool {

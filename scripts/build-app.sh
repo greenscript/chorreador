@@ -3,6 +3,14 @@ set -euo pipefail
 
 project_dir="${0:A:h:h}"
 configuration="${1:-release}"
+case "$configuration" in
+    debug) products_configuration="Debug" ;;
+    release) products_configuration="Release" ;;
+    *)
+        echo "Usage: $0 [debug|release]" >&2
+        exit 2
+        ;;
+esac
 app_dir="$project_dir/dist/Chorreador.app"
 contents_dir="$app_dir/Contents"
 iconset_dir="$project_dir/.build/AppIcon.iconset"
@@ -10,12 +18,12 @@ iconset_dir="$project_dir/.build/AppIcon.iconset"
 cd "$project_dir"
 export CLANG_MODULE_CACHE_PATH="$project_dir/.build/clang-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$project_dir/.build/swift-cache"
-swift build --disable-sandbox -c "$configuration"
+swift build --disable-sandbox -c "$configuration" --arch arm64 --arch x86_64
 
 rm -rf "$app_dir" "$project_dir/dist/Agentpresso.app" "$project_dir/dist/Wakeful.app" "$iconset_dir"
 mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources" "$iconset_dir"
 
-cp ".build/$configuration/Chorreador" "$contents_dir/MacOS/Chorreador"
+cp ".build/apple/Products/$products_configuration/Chorreador" "$contents_dir/MacOS/Chorreador"
 cp "Resources/Info.plist" "$contents_dir/Info.plist"
 
 for size in 16 32 128 256 512; do

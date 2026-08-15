@@ -71,4 +71,33 @@ final class AgentProcessDetectorTests: XCTestCase {
 
         XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
     }
+
+    func testDetectsCustomExecutableNamesWithoutPartialMatches() {
+        let processList = """
+          501 /opt/homebrew/bin/aider --model sonnet
+          502 /Users/diego/bin/aider-helper --watch
+          503 /usr/local/bin/goose session
+        """
+
+        XCTAssertEqual(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["aider", "goose"]
+            ),
+            ["aider", "goose"]
+        )
+    }
+
+    func testCustomDetectionIgnoresChorreadorItself() {
+        let processList = """
+          601 /Applications/Chorreador.app/Contents/MacOS/Chorreador
+        """
+
+        XCTAssertTrue(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["Chorreador"]
+            ).isEmpty
+        )
+    }
 }
