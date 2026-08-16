@@ -3,7 +3,7 @@ import ServiceManagement
 
 @MainActor
 final class PowerManager: NSObject, ObservableObject {
-    static let lowBatteryThreshold = 20
+    nonisolated static let lowBatteryThreshold = 20
 
     @Published var protectionEnabled: Bool {
         didSet {
