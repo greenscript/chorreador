@@ -197,11 +197,9 @@ final class PowerManager: NSObject, ObservableObject {
     }
 
     func addCustomProcess(_ processName: String) {
-        let normalized = processName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .split(separator: "/")
-            .last
-            .map(String.init) ?? ""
+        // Stored verbatim: entries with "/" or spaces are command-line patterns,
+        // so collapsing them to a basename would break them.
+        let normalized = processName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return }
         guard !customProcessNames.contains(where: {
             $0.caseInsensitiveCompare(normalized) == .orderedSame

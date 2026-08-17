@@ -95,22 +95,36 @@ enum AgentProcessDetector {
         return detected
     }
 
+    // A plain entry matches an executable's basename. An entry containing "/" or
+    // whitespace matches anywhere in the full command line, so interpreter-wrapped
+    // jobs ("venv/bin/python3 …/hermes --provider … -z clean") stay detectable while
+    // an idle daemon with the same binary but no job arguments does not.
     static func detectCustomProcesses(
         in processList: String,
         matching processNames: [String]
     ) -> Set<String> {
-        var normalizedNames: [String: String] = [:]
+        var executableNames: [String: String] = [:]
+        var commandPatterns: [String: String] = [:]
         for processName in processNames {
             let trimmed = processName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { continue }
-            normalizedNames[trimmed.lowercased()] = trimmed
+            if trimmed.contains("/") || trimmed.contains(where: \.isWhitespace) {
+                commandPatterns[trimmed.lowercased()] = trimmed
+            } else {
+                executableNames[trimmed.lowercased()] = trimmed
+            }
         }
-        guard !normalizedNames.isEmpty else { return [] }
+        guard !executableNames.isEmpty || !commandPatterns.isEmpty else { return [] }
 
         var detected: Set<String> = []
         for command in commands(in: processList) {
             let lowercased = command.lowercased()
             guard !lowercased.contains("/chorreador.app/contents/") else { continue }
+
+            for (pattern, originalName) in commandPatterns where lowercased.contains(pattern) {
+                detected.insert(originalName)
+            }
+
             guard let executable = command.split(whereSeparator: { $0.isWhitespace }).first else {
                 continue
             }
@@ -122,7 +136,7 @@ enum AgentProcessDetector {
                 .map(String.init)?
                 .lowercased()
 
-            if let executableName, let originalName = normalizedNames[executableName] {
+            if let executableName, let originalName = executableNames[executableName] {
                 detected.insert(originalName)
             }
         }

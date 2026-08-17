@@ -106,7 +106,7 @@ private struct AgentSettingsView: View {
 
             Section("Custom processes") {
                 HStack {
-                    TextField("Executable name, such as aider", text: $customProcessName)
+                    TextField("aider, or a fragment like scripts/my-job.sh", text: $customProcessName)
                         .focused($customProcessFieldFocused)
                         .onSubmit(addCustomProcess)
 
@@ -114,11 +114,11 @@ private struct AgentSettingsView: View {
                         .disabled(customProcessName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
-                if powerManager.customProcessNames.isEmpty {
-                    Text("Add an executable name to include another local agent or long-running tool.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
+                Text("A plain name matches an executable. Include a space or / to match anywhere in the command line — useful for tools that run inside python or node, such as “hermes --provider”. Keep fragments specific to the job, so an always-on daemon can’t hold the pour forever.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if !powerManager.customProcessNames.isEmpty {
                     ForEach(powerManager.customProcessNames, id: \.self) { processName in
                         HStack {
                             ProcessStatusRow(

@@ -31,7 +31,7 @@ Chorreador watches locally for:
 
 When a supported agent starts, Chorreador prevents idle system sleep. Most agents return to normal sleep behavior within the next 10-second check after they exit. Codex Desktop uses a five-minute quiet lease so long reasoning and tool calls remain protected between activity events.
 
-Need another runtime? Add its executable name under **Custom processes** and Chorreador will include it in the same local scan.
+Need another runtime? Add it under **Custom processes** and Chorreador will include it in the same local scan. A plain entry matches an executable name; an entry containing a space or `/` matches anywhere in the command line, which covers tools that run inside interpreters — `hermes --provider` catches a Python venv job, `scripts/clean-driver.sh` a shell wrapper, `rag/ingest-incremental.ts` a Node script. Keep fragments specific to the job so an always-on daemon can't hold the pour forever.
 
 ## Why it feels safe
 
@@ -57,7 +57,7 @@ Need another runtime? Add its executable name under **Custom processes** and Cho
 
 - **Launch at login** so auto-pour is ready before your agents are.
 - **Live activity** showing which agents are flowing and for how long.
-- **Custom processes** for tools such as Aider, Goose, or your own scripts.
+- **Custom processes** for tools such as Aider, Goose, or your own scripts — by executable name or command-line fragment.
 - **Quiet notifications** only when an agent pour starts, finishes, or pauses for battery care.
 - **Persistent timers** that survive relaunch and expire automatically.
 

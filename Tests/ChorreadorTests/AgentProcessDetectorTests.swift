@@ -99,6 +99,63 @@ final class AgentProcessDetectorTests: XCTestCase {
         )
     }
 
+    func testCommandLinePatternsMatchInterpreterWrappedJobs() {
+        let processList = """
+          701 /Users/diego/.hermes/hermes-agent/venv/bin/python3 /Users/diego/.hermes/hermes-agent/venv/bin/hermes --provider deepseek -m deepseek-chat -z clean tomas-4
+          702 bash scripts/clean-driver.sh
+          703 node /opt/homebrew/bin/tsx rag/ingest-incremental.ts
+        """
+
+        XCTAssertEqual(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["hermes --provider", "scripts/clean-driver.sh", "rag/ingest-incremental.ts"]
+            ),
+            ["hermes --provider", "scripts/clean-driver.sh", "rag/ingest-incremental.ts"]
+        )
+    }
+
+    func testCommandLinePatternsIgnoreIdleDaemonAndDesktopApp() {
+        let processList = """
+          711 /Users/diego/.hermes/hermes-agent/venv/bin/python3 /Users/diego/.hermes/hermes-agent/venv/bin/hermes
+          712 /Applications/Hermes.app/Contents/MacOS/Hermes
+        """
+
+        XCTAssertTrue(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["hermes --provider", "-z clean"]
+            ).isEmpty
+        )
+    }
+
+    func testCommandLinePatternsMatchCaseInsensitively() {
+        let processList = """
+          721 bash /Users/diego/Projects/Scripts/Clean-Driver.sh
+        """
+
+        XCTAssertEqual(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["scripts/clean-driver.sh"]
+            ),
+            ["scripts/clean-driver.sh"]
+        )
+    }
+
+    func testCommandLinePatternsStillIgnoreChorreadorItself() {
+        let processList = """
+          731 /Applications/Chorreador.app/Contents/MacOS/Chorreador
+        """
+
+        XCTAssertTrue(
+            AgentProcessDetector.detectCustomProcesses(
+                in: processList,
+                matching: ["contents/macos"]
+            ).isEmpty
+        )
+    }
+
     func testCustomDetectionIgnoresChorreadorItself() {
         let processList = """
           601 /Applications/Chorreador.app/Contents/MacOS/Chorreador
