@@ -3,6 +3,17 @@ import SwiftUI
 
 struct ChorreadorMenuView: View {
     @ObservedObject var powerManager: PowerManager
+    @ObservedObject var journal: PourJournal
+
+    init(powerManager: PowerManager) {
+        self.powerManager = powerManager
+        self.journal = powerManager.journal
+    }
+
+    private var isFlowing: Bool {
+        powerManager.policy == .protectingSystem
+            || powerManager.policy == .protectingSystemAndDisplay
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,8 +25,16 @@ struct ChorreadorMenuView: View {
                 displayMayRest: powerManager.letDisplaySleep,
                 automaticDetectionEnabled: powerManager.automaticDetectionEnabled,
                 manualPourEnabled: powerManager.protectionEnabled,
-                brewTimerEndDate: powerManager.brewTimerEndDate
+                brewTimerEndDate: powerManager.brewTimerEndDate,
+                sleepCount: journal.openRecord?.interruptions.count ?? 0
             )
+
+            if !isFlowing,
+               let lastPour = journal.lastCompletedRecord,
+               let endedAt = lastPour.endedAt,
+               Date().timeIntervalSince(endedAt) < 86_400 {
+                LastPourRow(record: lastPour)
+            }
 
             AutoPourControl(
                 isEnabled: $powerManager.automaticDetectionEnabled,
@@ -53,6 +72,7 @@ private struct BrewStatusHeader: View {
     let automaticDetectionEnabled: Bool
     let manualPourEnabled: Bool
     let brewTimerEndDate: Date?
+    let sleepCount: Int
 
     private var isFlowing: Bool {
         policy == .protectingSystem || policy == .protectingSystemAndDisplay
@@ -172,7 +192,11 @@ private struct BrewStatusHeader: View {
                 : "Auto-pour is off · Mac sleeps normally"
         case .protectingSystem, .protectingSystemAndDisplay:
             let display = displayMayRest ? "display may rest" : "display stays awake"
-            return "\(pourSourceDescription(at: date)) · \(display)"
+            var detail = "\(pourSourceDescription(at: date)) · \(display)"
+            if sleepCount > 0 {
+                detail += " · slept \(sleepCount)×"
+            }
+            return detail
         case .pausedForLowBattery:
             return "Paused at \(PowerManager.lowBatteryThreshold)% · resumes when power returns"
         }
@@ -271,6 +295,56 @@ private struct BrewFlowRail: View {
         }
         .foregroundStyle(flowColor)
         .accessibilityHidden(true)
+    }
+}
+
+private struct LastPourRow: View {
+    let record: PourRecord
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.caption2)
+                .foregroundStyle(record.interruptions.isEmpty ? Color.secondary : .orange)
+
+            Text(summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 2)
+        .help(record.sources.joined(separator: " + "))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Last pour: \(summary)")
+    }
+
+    private var icon: String {
+        if !record.interruptions.isEmpty { return "moon.zzz.fill" }
+        switch record.endReason {
+        case .batteryPause: return "battery.25"
+        case .appQuit: return "exclamationmark.circle"
+        case .finished, nil: return "checkmark.circle"
+        }
+    }
+
+    private var summary: String {
+        let duration = brewDurationText(record.duration(asOf: Date()))
+        var text = "Last pour \(duration)"
+        if !record.interruptions.isEmpty {
+            let lost = brewDurationText(record.totalSleepLost)
+            text += " · slept \(record.interruptions.count)× (\(lost) lost)"
+        } else {
+            switch record.endReason {
+            case .batteryPause: text += " · paused for battery"
+            case .appQuit: text += " · cut short"
+            case .finished, nil: text += " · clean finish"
+            }
+        }
+        return text
     }
 }
 

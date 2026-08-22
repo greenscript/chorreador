@@ -19,6 +19,11 @@ struct ChorreadorSettingsView: View {
                 .tabItem {
                     Label("Battery", systemImage: "battery.75")
                 }
+
+            JournalSettingsView(journal: powerManager.journal)
+                .tabItem {
+                    Label("Journal", systemImage: "book.closed")
+                }
         }
         .frame(width: 520, height: 420)
         .onAppear {
@@ -178,6 +183,106 @@ private struct ProcessStatusRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(name), \(isRunning ? "running" : "not running")")
+    }
+}
+
+private struct JournalSettingsView: View {
+    @ObservedObject var journal: PourJournal
+
+    var body: some View {
+        Form {
+            Section("This week") {
+                LabeledContent("Protected time") {
+                    Text(brewDurationText(weeklyProtected))
+                        .monospacedDigit()
+                }
+
+                Text("Time your Mac was kept awake for agents over the last 7 days, minus any sleep interruptions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Recent pours") {
+                if recentRecords.isEmpty {
+                    Text("No pours recorded yet. The journal starts writing the next time a pour begins.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(recentRecords) { record in
+                        PourRecordRow(record: record)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private var weeklyProtected: TimeInterval {
+        let now = Date()
+        return journal.protectedDuration(from: now.addingTimeInterval(-7 * 86_400), to: now)
+    }
+
+    private var recentRecords: [PourRecord] {
+        journal.records.suffix(12).reversed()
+    }
+}
+
+private struct PourRecordRow: View {
+    let record: PourRecord
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(record.startedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.callout)
+
+                Spacer()
+
+                Text(brewDurationText(record.duration(asOf: Date())))
+                    .font(.callout)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+
+            Text(record.sources.joined(separator: " + "))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            HStack(spacing: 5) {
+                Image(systemName: outcomeIcon)
+                    .font(.caption2)
+                Text(outcomeText)
+                    .font(.caption)
+            }
+            .foregroundStyle(record.interruptions.isEmpty ? Color.secondary : .orange)
+        }
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var outcomeIcon: String {
+        if record.isOpen { return "drop.fill" }
+        if !record.interruptions.isEmpty { return "moon.zzz.fill" }
+        switch record.endReason {
+        case .batteryPause: return "battery.25"
+        case .appQuit: return "exclamationmark.circle"
+        case .finished, nil: return "checkmark.circle"
+        }
+    }
+
+    private var outcomeText: String {
+        if record.isOpen { return "Flowing now" }
+        if !record.interruptions.isEmpty {
+            let lost = brewDurationText(record.totalSleepLost)
+            return "Slept \(record.interruptions.count)× mid-pour · \(lost) lost"
+        }
+        switch record.endReason {
+        case .batteryPause: return "Paused for battery care"
+        case .appQuit: return "Cut short — Chorreador quit mid-pour"
+        case .finished, nil: return "Clean finish"
+        }
     }
 }
 

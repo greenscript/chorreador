@@ -1,9 +1,12 @@
+import AppKit
 import Foundation
 import ServiceManagement
 
 @MainActor
 final class PowerManager: NSObject, ObservableObject {
     nonisolated static let lowBatteryThreshold = 20
+
+    let journal: PourJournal
 
     @Published var protectionEnabled: Bool {
         didSet {
@@ -79,9 +82,11 @@ final class PowerManager: NSObject, ObservableObject {
     private var brewTimer: Timer?
     private var agentScanTask: Task<Void, Never>?
     private var hasCompletedInitialAgentScan = false
+    private var pourSleptAt: Date?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, journal: PourJournal? = nil) {
         self.defaults = defaults
+        self.journal = journal ?? PourJournal()
         Self.migrateLegacyPreferences(into: defaults)
         defaults.register(defaults: [
             Keys.protectionEnabled: false,
@@ -129,6 +134,20 @@ final class PowerManager: NSObject, ObservableObject {
             userInfo: nil,
             repeats: true
         )
+
+        let workspaceCenter = NSWorkspace.shared.notificationCenter
+        workspaceCenter.addObserver(
+            self,
+            selector: #selector(workspaceWillSleep),
+            name: NSWorkspace.willSleepNotification,
+            object: nil
+        )
+        workspaceCenter.addObserver(
+            self,
+            selector: #selector(workspaceDidWake),
+            name: NSWorkspace.didWakeNotification,
+            object: nil
+        )
     }
 
     deinit {
@@ -136,8 +155,34 @@ final class PowerManager: NSObject, ObservableObject {
         agentTimer?.invalidate()
         brewTimer?.invalidate()
         agentScanTask?.cancel()
+        NSWorkspace.shared.notificationCenter.removeObserver(self)
         if let activity {
             ProcessInfo.processInfo.endActivity(activity)
+        }
+    }
+
+    @objc private func workspaceWillSleep() {
+        guard policy == .protectingSystem || policy == .protectingSystemAndDisplay else { return }
+        pourSleptAt = Date()
+    }
+
+    @objc private func workspaceDidWake() {
+        defer {
+            refreshBattery()
+            refreshDetectedAgents()
+        }
+        guard let sleptAt = pourSleptAt else { return }
+        pourSleptAt = nil
+
+        let wokeAt = Date()
+        journal.recordInterruption(sleptAt: sleptAt, wokeAt: wokeAt)
+
+        if notificationsEnabled {
+            let sources = journal.openRecord?.sources ?? currentPourSources
+            NotificationManager.send(
+                title: "The pour was interrupted",
+                body: "Your Mac slept \(brewDurationText(wokeAt.timeIntervalSince(sleptAt))) while \(sources.joined(separator: " + ")) was flowing."
+            )
         }
     }
 
@@ -172,6 +217,10 @@ final class PowerManager: NSObject, ObservableObject {
         detectedAgents = detection.agents
         detectedCustomProcesses = detection.customProcesses
         reconcilePolicy()
+
+        if pourStartedAt != nil {
+            journal.updateSources(currentPourSources, at: Date())
+        }
 
         let currentNames = detectedProcessDisplayNames
         if hasCompletedInitialAgentScan {
@@ -254,8 +303,19 @@ final class PowerManager: NSObject, ObservableObject {
         launchAtLoginNeedsApproval = status == .requiresApproval
     }
 
+    private var currentPourSources: [String] {
+        let names = detectedProcessDisplayNames
+        if !names.isEmpty { return names }
+        if protectionEnabled { return ["Manual pour"] }
+        if brewTimerEndDate != nil { return ["Brew timer"] }
+        return ["Manual pour"]
+    }
+
     @objc private func refreshBatteryFromTimer() {
         refreshBattery()
+        if pourStartedAt != nil {
+            journal.keepAlive(at: Date())
+        }
     }
 
     @objc private func refreshDetectedAgentsFromTimer() {
@@ -285,9 +345,17 @@ final class PowerManager: NSObject, ObservableObject {
 
         if nextPolicy == .protectingSystem || nextPolicy == .protectingSystemAndDisplay {
             if pourStartedAt == nil {
-                pourStartedAt = Date()
+                let startedAt = Date()
+                pourStartedAt = startedAt
+                journal.beginPour(at: startedAt, sources: currentPourSources)
             }
         } else {
+            if pourStartedAt != nil {
+                journal.endPour(
+                    at: Date(),
+                    reason: nextPolicy == .pausedForLowBattery ? .batteryPause : .finished
+                )
+            }
             pourStartedAt = nil
         }
 

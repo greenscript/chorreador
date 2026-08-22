@@ -49,6 +49,9 @@ enum AgentProcessDetector {
             if ClaudeDesktopActivityDetector.isAgentRunning(in: processList) {
                 agents.insert(.claudeCode)
             }
+            if CursorDesktopActivityDetector.isAgentRunning(in: processList) {
+                agents.insert(.cursor)
+            }
 
             return AgentDetectionResult(
                 agents: agents,
