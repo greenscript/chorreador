@@ -49,7 +49,7 @@ enum CodexDesktopActivityDetector {
         }
     }
 
-    private static func activityQuery(for appServerPIDs: [Int]) -> String {
+    static func activityQuery(for appServerPIDs: [Int]) -> String {
         let processFilter = appServerPIDs
             .map { "process_uuid LIKE 'pid:\($0):%'" }
             .joined(separator: " OR ")
@@ -64,7 +64,13 @@ enum CodexDesktopActivityDetector {
                   target IN (
                       'codex_core::stream_events_utils',
                       'codex_core::session::turn',
-                      'codex_api::sse::responses'
+                      'codex_core::responses_retry',
+                      'codex_api::sse::responses',
+                      'codex_api::endpoint::responses_websocket'
+                  )
+                  OR (
+                      target = 'codex_core::session::handlers'
+                      AND feedback_log_body LIKE '%TurnInput%'
                   )
                   OR (
                       target = 'codex_app_server::outgoing_message'
@@ -73,6 +79,10 @@ enum CodexDesktopActivityDetector {
                           OR feedback_log_body LIKE 'app-server event: turn/diff/%'
                           OR feedback_log_body LIKE 'app-server event: thread/tokenUsage/%'
                       )
+                  )
+                  OR (
+                      target = 'codex_app_server::message_processor'
+                      AND feedback_log_body LIKE 'app-server request: turn/%'
                   )
               );
             """

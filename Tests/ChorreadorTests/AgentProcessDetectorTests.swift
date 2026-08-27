@@ -168,4 +168,19 @@ final class AgentProcessDetectorTests: XCTestCase {
             ).isEmpty
         )
     }
+
+    func testBareKimiProcessIsNotDetectedByGenericMatching() {
+        let processList = """
+          3407 kimi
+          70539 /opt/homebrew/bin/kimi
+          88001 /usr/local/bin/kimi web
+        """
+
+        XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
+    }
+
+    func testKimiCodeBuiltInAgentUsesVisibleSourceName() {
+        XCTAssertEqual(CodingAgent.kimiCode.displayName, "Kimi Code")
+        XCTAssertTrue(CodingAgent.allCases.contains(.kimiCode))
+    }
 }

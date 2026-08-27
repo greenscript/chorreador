@@ -32,4 +32,16 @@ final class CodexDesktopActivityDetectorTests: XCTestCase {
             [2466, 57032]
         )
     }
+
+    func testActivityQueryIncludesTurnStartAndWebsocketTargets() {
+        let query = CodexDesktopActivityDetector.activityQuery(for: [44207])
+
+        XCTAssertTrue(query.contains("codex_api::endpoint::responses_websocket"))
+        XCTAssertTrue(query.contains("codex_core::responses_retry"))
+        XCTAssertTrue(query.contains("app-server request: turn/%"))
+        XCTAssertTrue(query.contains("%TurnInput%"))
+        // Idle housekeeping must not hold the pour after a turn ends.
+        XCTAssertFalse(query.contains("remoteControl/status"))
+        XCTAssertFalse(query.contains("account/read"))
+    }
 }

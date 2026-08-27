@@ -4,6 +4,7 @@ enum CodingAgent: String, CaseIterable, Hashable, Sendable {
     case claudeCode
     case codex
     case cursor
+    case kimiCode
     case openCode
     case t3Code
 
@@ -12,6 +13,7 @@ enum CodingAgent: String, CaseIterable, Hashable, Sendable {
         case .claudeCode: return "Claude Code"
         case .codex: return "Codex"
         case .cursor: return "Cursor"
+        case .kimiCode: return "Kimi Code"
         case .openCode: return "OpenCode"
         case .t3Code: return "T3 Code"
         }
@@ -51,6 +53,9 @@ enum AgentProcessDetector {
             }
             if CursorDesktopActivityDetector.isAgentRunning(in: processList) {
                 agents.insert(.cursor)
+            }
+            if KimiCodeWebActivityDetector.isAgentRunning(in: processList) {
+                agents.insert(.kimiCode)
             }
 
             return AgentDetectionResult(
