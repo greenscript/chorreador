@@ -6,8 +6,14 @@ enum ClaudeDesktopActivityDetector {
         let hasWorkerWithoutSessionID: Bool
     }
 
-    /// A fresh (non-resumed) desktop session's worker carries no session id in
-    /// argv, so its transcript can only be found by recent write activity.
+    struct CLIProcesses: Equatable {
+        let resumedSessionIDs: Set<String>
+        let hasProcessWithoutSessionID: Bool
+    }
+
+    /// A fresh (non-resumed) session's process carries no session id in argv,
+    /// so its transcript can only be found by recent write activity. This covers
+    /// both Claude Desktop workers and an interactive Claude Code CLI.
     static let freshSessionRecencyWindow: TimeInterval = 600
 
     // Transcript lines with embedded screenshots have been observed above 600 KB;
@@ -20,7 +26,12 @@ enum ClaudeDesktopActivityDetector {
         now: Date = Date()
     ) -> Bool {
         let workers = desktopWorkers(in: processList)
-        guard !workers.resumedSessionIDs.isEmpty || workers.hasWorkerWithoutSessionID else {
+        let cli = cliProcesses(in: processList)
+        let resumedSessionIDs = workers.resumedSessionIDs.union(cli.resumedSessionIDs)
+        let scanRecentTranscripts = workers.hasWorkerWithoutSessionID
+            || cli.hasProcessWithoutSessionID
+
+        guard !resumedSessionIDs.isEmpty || scanRecentTranscripts else {
             return false
         }
 
@@ -35,9 +46,9 @@ enum ClaudeDesktopActivityDetector {
 
         for case let fileURL as URL in enumerator where fileURL.pathExtension == "jsonl" {
             let sessionID = fileURL.deletingPathExtension().lastPathComponent
-            var shouldInspect = workers.resumedSessionIDs.contains(sessionID)
+            var shouldInspect = resumedSessionIDs.contains(sessionID)
 
-            if !shouldInspect, workers.hasWorkerWithoutSessionID {
+            if !shouldInspect, scanRecentTranscripts {
                 let modified = try? fileURL
                     .resourceValues(forKeys: [.contentModificationDateKey])
                     .contentModificationDate
@@ -61,23 +72,36 @@ enum ClaudeDesktopActivityDetector {
             guard command.contains("/library/application support/claude/claude-code/"),
                   command.contains("/claude.app/contents/macos/claude") else { continue }
 
-            var foundSessionID = false
-            for argument in rawLine.split(whereSeparator: { $0.isWhitespace }) {
-                let prefix = "--resume="
-                guard argument.hasPrefix(prefix) else { continue }
-                let sessionID = argument.dropFirst(prefix.count)
-                if !sessionID.isEmpty {
-                    sessionIDs.insert(String(sessionID))
-                    foundSessionID = true
-                }
-            }
-            if !foundSessionID {
+            if let sessionID = resumeSessionID(in: rawLine) {
+                sessionIDs.insert(sessionID)
+            } else {
                 hasWorkerWithoutSessionID = true
             }
         }
         return DesktopWorkers(
             resumedSessionIDs: sessionIDs,
             hasWorkerWithoutSessionID: hasWorkerWithoutSessionID
+        )
+    }
+
+    /// Interactive Claude Code CLI processes (not the Claude.app desktop shell,
+    /// and not the embedded desktop worker under Application Support).
+    static func cliProcesses(in processList: String) -> CLIProcesses {
+        var sessionIDs: Set<String> = []
+        var hasProcessWithoutSessionID = false
+        for rawLine in processList.split(separator: "\n") {
+            let command = command(from: rawLine).lowercased()
+            guard isClaudeCLICommand(command) else { continue }
+
+            if let sessionID = resumeSessionID(in: rawLine) {
+                sessionIDs.insert(sessionID)
+            } else {
+                hasProcessWithoutSessionID = true
+            }
+        }
+        return CLIProcesses(
+            resumedSessionIDs: sessionIDs,
+            hasProcessWithoutSessionID: hasProcessWithoutSessionID
         )
     }
 
@@ -102,6 +126,19 @@ enum ClaudeDesktopActivityDetector {
         return false
     }
 
+    static func isClaudeCLICommand(_ command: String) -> Bool {
+        if command.contains("/claude-code/")
+            && command.contains("/claude.app/contents/macos/claude") {
+            return false
+        }
+
+        guard !command.contains("/applications/claude.app/contents/") else { return false }
+
+        return executableNamed("claude", in: command)
+            || command.contains("@anthropic-ai/claude-code")
+            || command.contains("/claude-code/cli.js")
+    }
+
     private static func isAgentRunning(transcriptTailAt fileURL: URL) -> Bool {
         guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return false }
         defer { try? handle.close() }
@@ -121,5 +158,30 @@ enum ClaudeDesktopActivityDetector {
         } catch {
             return false
         }
+    }
+
+    private static func resumeSessionID(in rawLine: Substring) -> String? {
+        for argument in rawLine.split(whereSeparator: { $0.isWhitespace }) {
+            let prefix = "--resume="
+            guard argument.hasPrefix(prefix) else { continue }
+            let sessionID = argument.dropFirst(prefix.count)
+            if !sessionID.isEmpty {
+                return String(sessionID)
+            }
+        }
+        return nil
+    }
+
+    private static func command(from rawLine: Substring) -> String {
+        rawLine
+            .drop(while: { $0.isWhitespace || $0.isNumber })
+            .trimmingCharacters(in: .whitespaces)
+    }
+
+    private static func executableNamed(_ name: String, in command: String) -> Bool {
+        guard let executable = command.split(whereSeparator: { $0.isWhitespace }).first else {
+            return false
+        }
+        return executable == name || executable.hasSuffix("/\(name)")
     }
 }

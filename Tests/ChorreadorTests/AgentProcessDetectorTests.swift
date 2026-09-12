@@ -12,7 +12,9 @@ final class AgentProcessDetectorTests: XCTestCase {
           106 /Applications/Claude.app/Contents/Frameworks/Claude Helper.app/Contents/MacOS/Claude Helper
         """
 
-        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode, .codex])
+        // Idle Claude Code CLI is handled by transcript activity detection, not
+        // bare process presence.
+        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.codex])
     }
 
     func testIgnoresPersistentClaudeCodeWorkerLaunchedByClaudeDesktop() {
@@ -29,7 +31,17 @@ final class AgentProcessDetectorTests: XCTestCase {
           302 node /opt/homebrew/lib/node_modules/@openai/codex/bin/codex.js
         """
 
-        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.claudeCode, .codex])
+        XCTAssertEqual(AgentProcessDetector.detect(in: processList), [.codex])
+    }
+
+    func testBareClaudeCodeCLIIsNotDetectedByGenericMatching() {
+        let processList = """
+          60034 claude
+          60035 /Users/diego/.local/bin/claude
+          60036 node /opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/cli.js
+        """
+
+        XCTAssertTrue(AgentProcessDetector.detect(in: processList).isEmpty)
     }
 
     func testIgnoresPersistentCodexDesktopWorkers() {

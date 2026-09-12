@@ -83,9 +83,8 @@ enum AgentProcessDetector {
                 .trimmingCharacters(in: .whitespaces)
             let lowercased = command.lowercased()
 
-            if isClaudeCodeCommand(lowercased) {
-                detected.insert(.claudeCode)
-            }
+            // Claude Code CLI stays alive while idle at the prompt. Activity is
+            // decided by ClaudeDesktopActivityDetector from transcript turn state.
             if isCodexCLICommand(lowercased) {
                 detected.insert(.codex)
             }
@@ -158,19 +157,6 @@ enum AgentProcessDetector {
                 .drop(while: { $0.isWhitespace || $0.isNumber })
                 .trimmingCharacters(in: .whitespaces)
         }
-    }
-
-    private static func isClaudeCodeCommand(_ command: String) -> Bool {
-        if command.contains("/claude-code/")
-            && command.contains("/claude.app/contents/macos/claude") {
-            return false
-        }
-
-        guard !command.contains("/applications/claude.app/contents/") else { return false }
-
-        return executableNamed("claude", in: command)
-            || command.contains("@anthropic-ai/claude-code")
-            || command.contains("/claude-code/cli.js")
     }
 
     private static func isCodexCLICommand(_ command: String) -> Bool {
